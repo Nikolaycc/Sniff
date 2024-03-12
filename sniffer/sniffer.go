@@ -85,7 +85,7 @@ func (e *EthHeader) FromBytes(buf []byte) (uintptr, uintptr) {
 }
 
 type Capture struct {
-	fd int
+	Fd int
 }
 
 func (c Capture) GetIfaces() []string {
@@ -120,18 +120,34 @@ func (c *Capture) CreateCap(ifa string) {
 		os.Exit(1)
 	}
 
-	c.fd = fd
+	c.Fd = fd
 }
 
 func (c *Capture) Destroy() {
-	sys.Close(c.fd)
+	sys.Close(c.Fd)
+}
+
+func (c *Capture) Capn(loop int, cb func(EthHeader, uintptr, uintptr)) {
+	for range loop {
+		buffer := make([]byte, 65536) // Large buffer to hold a packet
+		ethhdr := EthHeader{}
+		n, _, err := sys.Recvfrom(c.Fd, buffer, 0)
+		if err != nil {
+			fmt.Println("Error receiving packet:", err)
+			continue
+		}
+		fmt.Printf("Received a packet with %d bytes\n", n)
+		sptr, size := ethhdr.FromBytes(buffer)
+
+		cb(ethhdr, sptr, size)
+	}
 }
 
 func (c *Capture) Cap(cb func(EthHeader, uintptr, uintptr)) {
 	for {
 		buffer := make([]byte, 65536) // Large buffer to hold a packet
 		ethhdr := EthHeader{}
-		n, _, err := sys.Recvfrom(c.fd, buffer, 0)
+		n, _, err := sys.Recvfrom(c.Fd, buffer, 0)
 		if err != nil {
 			fmt.Println("Error receiving packet:", err)
 			continue

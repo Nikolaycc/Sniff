@@ -1,10 +1,16 @@
 GOC = go
 TESTOUT = tests
 
-all: clean test
+all: clean test cmd
 
+.PHONY: clean
 clean:
-	rm -rfv ./tests
+	rm -rfv ./tests ./sniff
 
+.PHONY: test
 test: ./tests.go
 	$(GOC) build ./tests.go
+
+.PHONY: cmd
+cmd: ./cmd/sniff.go
+	$(GOC) build ./cmd/sniff.go
