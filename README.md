@@ -2,14 +2,29 @@
 
 - Packet Sniffer in GO
 
+## build
+
+```bash
+$ make
+```
+
 ## Tests
 
 ```bash
-$ make && sudo ./tests
+$ sudo ./tests
 ```
 
 ## CMD
 
 ```bash
-$ # TODO: sniff-cli
+$ sudo sniff -h
+    Usage of ./sniff:
+        -i string
+            Network Interface (default "lo")
+        -l int
+            Loop quantity (default 1)
+        -ls
+            List of Network Interface
+        -o string
+            Output log file
 ```

@@ -68,8 +68,6 @@ func main() {
 	if !slices.Contains(ifas, *ifaFlag) {
 		panic("ERROR: Not found Interface")
 	}
-
-	fmt.Println(*oFlag, *lFlag, *ifaFlag)
 	defer fileds.Close()
 
 	s.CreateCap(*ifaFlag)
