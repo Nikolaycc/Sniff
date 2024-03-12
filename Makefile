@@ -3,8 +3,8 @@ TESTOUT = tests
 
 all: clean test
 
-clean: ./tests
+clean:
 	rm -rfv ./tests
 
 test: ./tests.go
-	$(GOC) build ./tests.go -o $(TESTOUT)
+	$(GOC) build ./tests.go

@@ -3,6 +3,7 @@ package sniffer
 /*
 #cgo CFLAGS: -g -Wall -Wextra
 #include <ifaddrs.h>
+#include <arpa/inet.h>
 */
 import "C"
 
@@ -19,15 +20,11 @@ const (
 	IFA_MAX      = 20
 )
 
-type EthHeader struct {
-	dhost   [6]byte
-	shost   [6]byte
-	proto uint16
-}
-
-func (e *EthHeader) fromBytes(buf []byte) {
-	*e = *(*EthHeader)(unsafe.Pointer(&buf[0]))
-}
+var (
+	P_IP   = uint16(C.htons(sys.ETH_P_IP))
+	P_ARP  = uint16(C.htons(sys.ETH_P_ARP))
+	P_IPV6 = uint16(C.htons(sys.ETH_P_IPV6))
+)
 
 func fixCArray(items []string) []string {
 	slices.Sort(items)
@@ -42,6 +39,49 @@ func fixCArray(items []string) []string {
 		}
 	}
 	return result[1:]
+}
+
+type IPHeader struct {
+	VersionAndIHL uint8
+	TypeOfService uint8
+	TotalLength   uint16
+	ID            uint16
+	Flags         uint16
+	TTL           uint8
+	Protocol      uint8
+	Checksum      uint16
+	SrcIP         [4]byte
+	DstIP         [4]byte
+}
+
+func (e *IPHeader) FromBytes(buf []byte) (uintptr, uintptr) {
+	if len(buf) >= 14 {
+		ptr := unsafe.Pointer(&buf[0])
+		hdrlen := unsafe.Sizeof(IPHeader{})
+		*e = *(*IPHeader)(ptr)
+
+		return uintptr(ptr), uintptr(hdrlen)
+	} else {
+		panic("ERROR: Buffer size is not (len(buf) >= 14)")
+	}
+}
+
+type EthHeader struct {
+	Dhost [6]byte
+	Shost [6]byte
+	Proto uint16
+}
+
+func (e *EthHeader) FromBytes(buf []byte) (uintptr, uintptr) {
+	if len(buf) >= 14 {
+		ptr := unsafe.Pointer(&buf[0])
+		hdrlen := unsafe.Sizeof(EthHeader{})
+		*e = *(*EthHeader)(ptr)
+
+		return uintptr(ptr), uintptr(hdrlen)
+	} else {
+		panic("ERROR: Buffer size is not (len(buf) >= 14)")
+	}
 }
 
 type Capture struct {
@@ -87,7 +127,7 @@ func (c *Capture) Destroy() {
 	sys.Close(c.fd)
 }
 
-func (c *Capture) Cap() {
+func (c *Capture) Cap(cb func(EthHeader, uintptr, uintptr)) {
 	for {
 		buffer := make([]byte, 65536) // Large buffer to hold a packet
 		ethhdr := EthHeader{}
@@ -97,11 +137,27 @@ func (c *Capture) Cap() {
 			continue
 		}
 		fmt.Printf("Received a packet with %d bytes\n", n)
-		ethhdr.fromBytes(buffer)
+		sptr, size := ethhdr.FromBytes(buffer)
 
-		fmt.Printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n", ethhdr.dhost[0], ethhdr.dhost[1], ethhdr.dhost[2], ethhdr.dhost[3], ethhdr.dhost[4], ethhdr.dhost[5])
-
-		fmt.Printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n", ethhdr.shost[0], ethhdr.shost[1], ethhdr.shost[2], ethhdr.shost[3], ethhdr.shost[4], ethhdr.shost[5])
-		fmt.Println(ethhdr.proto)
+		cb(ethhdr, sptr, size)
 	}
+}
+
+func IPBytesToString(ip [4]byte) string {
+	var ret string
+
+	for k, value := range ip {
+		ret += fmt.Sprint(value)
+		if k != 3 {
+			ret += fmt.Sprint(".")
+		} else {
+			ret += fmt.Sprint("")
+		}
+	}
+
+	return ret
+}
+
+func MacBytesToString(mac [6]byte) string {
+	return fmt.Sprintf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5])
 }
