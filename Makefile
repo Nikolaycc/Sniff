@@ -14,3 +14,7 @@ test: ./tests.go
 .PHONY: cmd
 cmd: ./cmd/sniff.go
 	$(GOC) build ./cmd/sniff.go
+
+.PHONY: alt
+alt: ./alt/vs.go
+	$(GOC) build ./alt/vs.go

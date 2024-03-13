@@ -26,19 +26,92 @@ var (
 	P_IPV6 = uint16(C.htons(sys.ETH_P_IPV6))
 )
 
-func fixCArray(items []string) []string {
-	slices.Sort(items)
+type PacketLayer interface {
+	Type() string
+	Payload() []byte
+	NextLayer() PacketLayer
+	FromBytes(buf []byte) (uintptr, uintptr)
+	Print(fd *os.File)
+}
 
-	seen := make(map[string]struct{}, len(items)) // A set-like structure
-	result := []string{}
+type ARPHeader struct {
+	HardwareType          uint16
+	ProtocolType          uint16
+	HardwareAddressLength uint8
+	ProtocolAddressLength uint8
+	Operation             uint16
+	SenderHardwareAddress [6]byte
+	SenderIP              [4]byte
+	TargetHardwareAddress [6]byte
+	TargetIP              [4]byte
+}
 
-	for _, item := range items {
-		if _, ok := seen[item]; !ok {
-			result = append(result, item)
-			seen[item] = struct{}{}
-		}
+type ARPLayer struct {
+	ARPHdr ARPHeader
+}
+
+func (al *ARPLayer) Print(fd *os.File) {
+	fmt.Fprintln(fd, "ARP Layer:")
+
+	// Hardware and Protocol Types
+	fmt.Fprintf(fd, "  Hardware Type: %d ", al.ARPHdr.HardwareType)
+	if al.ARPHdr.HardwareType == 1 {
+		fmt.Fprintln(fd, "(Ethernet)")
+	} else {
+		fmt.Fprintln(fd, "(Unknown)")
 	}
-	return result[1:]
+
+	fmt.Fprintf(fd, "  Protocol Type: 0x%04x ", al.ARPHdr.ProtocolType)
+	if al.ARPHdr.ProtocolType == 0x0800 {
+		fmt.Fprintln(fd, "(IPv4)")
+	} else {
+		fmt.Fprintln(fd, "(Unknown)")
+	}
+
+	// Operation
+	fmt.Fprintf(fd, "  Operation: %d ", al.ARPHdr.Operation)
+	if al.ARPHdr.Operation == 1 {
+		fmt.Fprintln(fd, "(ARP Request)")
+	} else if al.ARPHdr.Operation == 2 {
+		fmt.Fprintln(fd, "(ARP Reply)")
+	} else {
+		fmt.Fprintln(fd, "(Unknown)")
+	}
+
+	// Sender Information
+	fmt.Fprintf(fd, "  Sender MAC: %s\n", MacBytesToString(al.ARPHdr.SenderHardwareAddress))
+	fmt.Fprintf(fd, "  Sender IP: %s\n", IPBytesToString(al.ARPHdr.SenderIP))
+
+	// Target Information
+	fmt.Fprintf(fd, "  Target MAC: %s\n", MacBytesToString(al.ARPHdr.TargetHardwareAddress))
+	fmt.Fprintf(fd, "  Target IP: %s\n", IPBytesToString(al.ARPHdr.TargetIP))
+}
+
+func (il *ARPLayer) Type() string {
+	return "ARP"
+}
+
+func (il *ARPLayer) Payload() []byte {
+	return nil
+}
+
+func (il *ARPLayer) NextLayer() PacketLayer {
+	// Logic to determine the next layer based on il.ipHeader.Protocol
+	// Examples:
+	// ... Add more cases for other protocols
+	return nil
+}
+
+func (e *ARPLayer) FromBytes(buf []byte) (uintptr, uintptr) {
+	if len(buf) >= 14 {
+		ptr := unsafe.Pointer(&buf[0])
+		hdrlen := unsafe.Sizeof(ARPHeader{})
+		e.ARPHdr = *(*ARPHeader)(ptr)
+
+		return uintptr(ptr), uintptr(hdrlen)
+	} else {
+		panic("ERROR: Buffer size is not (len(buf) >= 14)")
+	}
 }
 
 type IPHeader struct {
@@ -54,16 +127,43 @@ type IPHeader struct {
 	DstIP         [4]byte
 }
 
-func (e *IPHeader) FromBytes(buf []byte) (uintptr, uintptr) {
+type IPLayer struct {
+	IPHdr   IPHeader
+	payload []byte
+}
+
+func (il *IPLayer) Type() string {
+	return "IP"
+}
+
+func (il *IPLayer) Payload() []byte {
+	return il.payload
+}
+
+func (il *IPLayer) NextLayer() PacketLayer {
+	// Logic to determine the next layer based on il.ipHeader.Protocol
+	// Examples:
+	// ... Add more cases for other protocols
+	return nil
+}
+
+func (e *IPLayer) FromBytes(buf []byte) (uintptr, uintptr) {
 	if len(buf) >= 14 {
 		ptr := unsafe.Pointer(&buf[0])
 		hdrlen := unsafe.Sizeof(IPHeader{})
-		*e = *(*IPHeader)(ptr)
+		e.IPHdr = *(*IPHeader)(ptr)
 
 		return uintptr(ptr), uintptr(hdrlen)
 	} else {
 		panic("ERROR: Buffer size is not (len(buf) >= 14)")
 	}
+}
+
+func (il *IPLayer) Print(fd *os.File) {
+	fmt.Fprintln(fd, "IP Layer:")
+	fmt.Fprintf(fd, "  Source IP: %s\n", IPBytesToString(il.IPHdr.SrcIP))
+	fmt.Fprintf(fd, "  Destination IP: %s\n", IPBytesToString(il.IPHdr.DstIP))
+	fmt.Fprintf(fd, "  Protocol: %d\n", il.IPHdr.Protocol)
 }
 
 type EthHeader struct {
@@ -72,16 +172,50 @@ type EthHeader struct {
 	Proto uint16
 }
 
-func (e *EthHeader) FromBytes(buf []byte) (uintptr, uintptr) {
+type EthLayer struct {
+	EthHdr  EthHeader
+	payload []byte
+}
+
+func (el *EthLayer) Type() string {
+	return "Ethernet"
+}
+
+func (el *EthLayer) Payload() []byte {
+	return el.payload
+}
+
+func (el *EthLayer) NextLayer() PacketLayer {
+	// Logic to determine the next layer based on ethHeader.Proto
+	// For example, if P_IP, return an IP layer implementation
+	switch el.EthHdr.Proto {
+	case P_IP:
+		return &IPLayer{IPHdr: *(*IPHeader)(unsafe.Pointer(&el.payload[0])), payload: el.payload[unsafe.Sizeof(IPHeader{}):]}
+	case P_ARP:
+		return &ARPLayer{ARPHdr: *(*ARPHeader)(unsafe.Pointer(&el.payload[0]))}
+	default:
+		return nil
+	}
+}
+
+func (e *EthLayer) FromBytes(buf []byte) (uintptr, uintptr) {
 	if len(buf) >= 14 {
 		ptr := unsafe.Pointer(&buf[0])
 		hdrlen := unsafe.Sizeof(EthHeader{})
-		*e = *(*EthHeader)(ptr)
+		e.EthHdr = *(*EthHeader)(ptr)
+		e.payload = buf[14:]
 
 		return uintptr(ptr), uintptr(hdrlen)
 	} else {
 		panic("ERROR: Buffer size is not (len(buf) >= 14)")
 	}
+}
+
+func (el *EthLayer) Print(fd *os.File) {
+	fmt.Fprintln(fd, "Ethernet Layer:")
+	fmt.Fprintf(fd, "  Source MAC: %s\n", MacBytesToString(el.EthHdr.Shost))
+	fmt.Fprintf(fd, "  Destination MAC: %s\n", MacBytesToString(el.EthHdr.Dhost))
+	fmt.Fprintf(fd, "  Protocol: 0x%04x\n", el.EthHdr.Proto)
 }
 
 type Capture struct {
@@ -127,10 +261,10 @@ func (c *Capture) Destroy() {
 	sys.Close(c.Fd)
 }
 
-func (c *Capture) Capn(loop int, cb func(EthHeader, uintptr, uintptr)) {
+func (c *Capture) Capn(loop int, cb func(EthLayer, uintptr, uintptr)) {
 	for range loop {
 		buffer := make([]byte, 65536) // Large buffer to hold a packet
-		ethhdr := EthHeader{}
+		ethhdr := EthLayer{}
 		n, _, err := sys.Recvfrom(c.Fd, buffer, 0)
 		if err != nil {
 			fmt.Println("Error receiving packet:", err)
@@ -143,10 +277,10 @@ func (c *Capture) Capn(loop int, cb func(EthHeader, uintptr, uintptr)) {
 	}
 }
 
-func (c *Capture) Cap(cb func(EthHeader, uintptr, uintptr)) {
+func (c *Capture) Cap(cb func(EthLayer, uintptr, uintptr)) {
 	for {
 		buffer := make([]byte, 65536) // Large buffer to hold a packet
-		ethhdr := EthHeader{}
+		ethhdr := EthLayer{}
 		n, _, err := sys.Recvfrom(c.Fd, buffer, 0)
 		if err != nil {
 			fmt.Println("Error receiving packet:", err)
@@ -157,6 +291,21 @@ func (c *Capture) Cap(cb func(EthHeader, uintptr, uintptr)) {
 
 		cb(ethhdr, sptr, size)
 	}
+}
+
+func fixCArray(items []string) []string {
+	slices.Sort(items)
+
+	seen := make(map[string]struct{}, len(items)) // A set-like structure
+	result := []string{}
+
+	for _, item := range items {
+		if _, ok := seen[item]; !ok {
+			result = append(result, item)
+			seen[item] = struct{}{}
+		}
+	}
+	return result[1:]
 }
 
 func IPBytesToString(ip [4]byte) string {

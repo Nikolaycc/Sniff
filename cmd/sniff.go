@@ -6,7 +6,6 @@ import (
 	sniff "github.com/nikolaycc/Sniff/sniffer"
 	"os"
 	"slices"
-	"unsafe"
 )
 
 var (
@@ -20,27 +19,27 @@ func check(e error) {
 	}
 }
 
-func handlePacket(p sniff.EthHeader, sptr, size uintptr) {
+func handlePacket(p sniff.EthLayer, sptr, size uintptr) {
 	if *oFlag != "" {
 		var err error
 		fileds, err = os.Create(*oFlag)
 		check(err)
 	}
 
-	switch p.Proto {
-	case sniff.P_IP:
-		jol := *(*sniff.IPHeader)(unsafe.Pointer(sptr + size))
-		fmt.Fprintln(fileds, "IPv4 packet")
-		fmt.Fprintln(fileds, "DstIP: ", sniff.IPBytesToString(jol.DstIP))
-		fmt.Fprintln(fileds, "SrcIP: ", sniff.IPBytesToString(jol.SrcIP))
-	case sniff.P_ARP:
-		fmt.Fprintln(fileds, "ARP packet")
-		fmt.Fprintln(fileds, "Dst Mac Address: ", sniff.MacBytesToString(p.Dhost))
-		fmt.Fprintln(fileds, "Src Mac Address: ", sniff.MacBytesToString(p.Shost))
-	case sniff.P_IPV6:
-		fmt.Fprintln(fileds, "IPv6 packet")
+	fmt.Println(p.Type())
+	p.Print(fileds)
+	sx := p.NextLayer()
+	switch sx.Type() {
+	case "IP":
+		ip := sx.(*sniff.IPLayer)
+		fmt.Println(ip.Type())
+		sx.Print(fileds)
+	case "ARP":
+		arp := sx.(*sniff.ARPLayer)
+		fmt.Println(arp.Type())
+		sx.Print(fileds)
 	default:
-		fmt.Fprintln(fileds, "Other Protocol type:", p.Proto)
+		fmt.Println("Other Protocol type:", p.EthHdr.Proto)
 	}
 }
 

@@ -2,25 +2,26 @@ package main
 
 import (
 	"fmt"
+	"os"
 	sniff "github.com/nikolaycc/Sniff/sniffer"
-	"unsafe"
 )
 
-func handlePacket(p sniff.EthHeader, sptr, size uintptr) {
-	switch p.Proto {
-	case sniff.P_IP:
-		jol := *(*sniff.IPHeader)(unsafe.Pointer(sptr + size))
-		fmt.Println("IPv4 packet")
-		fmt.Println("DstIP: ", sniff.IPBytesToString(jol.DstIP))
-		fmt.Println("SrcIP: ", sniff.IPBytesToString(jol.SrcIP))
-	case sniff.P_ARP:
-		fmt.Println("ARP packet")
-		fmt.Println("Dst Mac Address: ", sniff.MacBytesToString(p.Dhost))
-		fmt.Println("Src Mac Address: ", sniff.MacBytesToString(p.Shost))
-	case sniff.P_IPV6:
-		fmt.Println("IPv6 packet")
+func handlePacket(p sniff.EthLayer, sptr, size uintptr) {
+	p.Print(os.Stdout)
+	sx := p.NextLayer()
+	switch sx.Type() {
+	case "IP":
+		// ip := sx.(*sniff.IPLayer)
+		sx.Print(os.Stdout)
+
+		// HERE IP Stuff...
+	case "ARP":
+		// arp := sx.(*sniff.ARPLayer)
+		sx.Print(os.Stdout)
+
+		// HERE ARP Stuff...
 	default:
-		fmt.Println("Other Protocol type:", p.Proto)
+		fmt.Println("Other Protocol type:", p.EthHdr.Proto)
 	}
 }
 
