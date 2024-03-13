@@ -2,9 +2,16 @@
 
 A low-level packet sniffer for GO
 
-## Build & Run
+> [!WARNING]
+> This library is unfinished. Keep your expectations low.
 
-1. Clone Repo `git clone git@github.com:Nikolaycc/Sniff.git`:
+## ⚙️ Installation
+1. Init `go mod init github.com/your/repo`
+2. Get `go get -u github.com/nikolaycc/sniff`
+
+## ⚙️ Build & Run
+
+1. Clone Repo `git clone git@github.com:Nikolaycc/Sniff.git`
 2. Build `make`
 3. Run `sudo ./sniff -h`
 4. Run Tests `sudo ./tests`
@@ -15,7 +22,7 @@ A low-level packet sniffer for GO
 import "github.com/nikolaycc/Sniff/sniffer"
 ```
 
-## Example
+## 👀 Example
 
 ```go
 func handlePacket(p sniff.EthHeader, sptr, size uintptr) {
@@ -31,7 +38,7 @@ func main() {
 }
 ```
 
-## Cmd
+## ⚙️ Cmd
 
 ```bash
 $ sudo sniff -h
@@ -46,13 +53,13 @@ $ sudo sniff -h
             Output log file
 ```
 
-## Development
+## ⚠️ Development
 
 ```bash
 $ make
 ```
 
-## Contributing
+## ☕ Contributing
 
 1. Fork it (<https://github.com/nikolaycc/sniff/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
