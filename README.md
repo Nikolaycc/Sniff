@@ -1,20 +1,37 @@
 # Sniff
 
-- Packet Sniffer in GO
+A low-level packet sniffer for GO
 
-## build
+## Build & Run
 
-```bash
-$ make
+1. Clone Repo `git clone git@github.com:Nikolaycc/Sniff.git`:
+2. Build `make`
+3. Run `sudo ./sniff -h`
+4. Run Tests `sudo ./tests`
+
+## Usage
+
+```go
+import "github.com/nikolaycc/Sniff/sniffer"
 ```
 
-## Tests
+## Example
 
-```bash
-$ sudo ./tests
+```go
+func handlePacket(p sniff.EthHeader, sptr, size uintptr) {
+    ....
+}
+
+func main() {
+    s := sniff.Capture{}
+    s.CreateCap("wlp2s0")
+    defer s.Destroy()
+
+    s.Cap(handlePacket)
+}
 ```
 
-## CMD
+## Cmd
 
 ```bash
 $ sudo sniff -h
@@ -28,3 +45,21 @@ $ sudo sniff -h
         -o string
             Output log file
 ```
+
+## Development
+
+```bash
+$ make
+```
+
+## Contributing
+
+1. Fork it (<https://github.com/nikolaycc/sniff/fork>)
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create a new Pull Request
+
+## Contributors
+
+- [Nikolaycc](https://github.com/nikolaycc) - creator and maintainer
