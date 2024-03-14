@@ -18,3 +18,7 @@ cmd: ./cmd/sniff.go
 .PHONY: alt
 alt: ./alt/vs.go
 	$(GOC) build ./alt/vs.go
+
+.PHONY: hotreload
+hotreload: ./hotreload.c
+	gcc -o hotreload hotreload.c -ldl
