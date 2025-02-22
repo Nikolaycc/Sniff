@@ -241,20 +241,20 @@ func (c Capture) GetIfaces() []string {
 	return ifas
 }
 
-func (c *Capture) CreateCap(ifa string) {
+func (c *Capture) CreateCap(ifa string) error {
 	fd, err := sys.Socket(sys.AF_PACKET, sys.SOCK_RAW, GO_ETH_P_ALL)
 	if err != nil {
-		fmt.Println("Error creating socket:", err)
-		os.Exit(1)
+		return err
 	}
 
 	err = sys.SetsockoptString(fd, sys.SOL_SOCKET, sys.SO_BINDTODEVICE, ifa)
 	if err != nil {
-		fmt.Println("Error setting socket opts:", err)
-		os.Exit(1)
+		return err
 	}
 
 	c.Fd = fd
+
+	return nil
 }
 
 func (c *Capture) Destroy() {
