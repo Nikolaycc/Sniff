@@ -6,8 +6,6 @@ name: Go
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
 
@@ -23,3 +21,6 @@ jobs:
 
     - name: Test
       run: go test -v ./tests.go
+
+    - name: Build
+      run: make
