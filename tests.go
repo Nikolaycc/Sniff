@@ -27,8 +27,11 @@ func handlePacket(p sniff.EthLayer, sptr, size uintptr) {
 
 func main() {
 	s := sniff.Capture{}
-	s.CreateCap("wlp2s0")
+	err := s.CreateCap("wlp2s0")
 	defer s.Destroy()
+	if err != nil {
+		panic(err)
+	}
 
 	s.Cap(handlePacket)
 }

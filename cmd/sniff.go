@@ -69,6 +69,8 @@ func main() {
 	}
 	defer fileds.Close()
 
-	s.CreateCap(*ifaFlag)
+	err := s.CreateCap(*ifaFlag)
+	check(err)
+	
 	s.Capn(*lFlag, handlePacket)
 }
